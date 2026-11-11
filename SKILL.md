@@ -1,6 +1,6 @@
 ---
 name: sync-multisource-doc-to-lexiang
-description: 把【企业微信 / 飞书 / 钉钉 / 腾讯文档个人版】的在线文档批量或增量导入乐享知识库指定目录。走乐享 MCP 的 entry_import_connector（2026-11-11 起建任务与查状态合并成这一个工具），服务端自己抓正文、图片和附件，Agent 不需要读正文、不需要下载再上传。config.json 写清目标目录与候选链接，脚本提交后用目录前后比对确认入库。首次配置走 init / collect（默认模板 config.example.json）。当用户提到企微、企业微信、飞书、Lark、钉钉、DingTalk、腾讯文档、docs.qq.com、乐享、导入、批量导入、增量导入、文档迁移时使用。
+description: 把【企业微信 / 飞书 / 钉钉 / 腾讯文档个人版】的在线文档批量或增量导入乐享知识库指定目录。走乐享 MCP 的 entry_import_connector（2026-11-11 起建任务与查状态合并成这一个工具），服务端自己抓正文、图片和附件，Agent 不需要读正文、不需要下载再上传。config.json 写清目标目录与候选链接，脚本提交后用目录前后比对确认入库。首次配置走 init / collect（默认模板 profiles/default/config.sample.json，缺配置时自动生成）。当用户提到企微、企业微信、飞书、Lark、钉钉、DingTalk、腾讯文档、docs.qq.com、乐享、导入、批量导入、增量导入、文档迁移时使用。
 agent_created: true
 version: "1.0.0"
 category: productivity
@@ -18,8 +18,10 @@ category: productivity
 - 候选一律填**源端链接原文**，原样粘贴。能不能导入由乐享导入接口判定，脚本不预判、不拦截、不解释。
 - 链接清单托管在乐享文档里时，`init --from` / `collect` 会自己读正文、抽链接、按源分组，
   **不用手抄、也不用手写一堆 task 块**。
-- 默认配置模板 [`config.example.json`](config.example.json)（唯一权威），逐字段说明见
-  [`references/config-reference.md`](references/config-reference.md)。**不要手写整份 JSON，用 `init` 生成。**
+- 仓库自带 `profiles/default/config.sample.json`（唯一权威模板，纯占位无凭证），根目录
+  `config.example.json` 是它的软链接。**不用 mkdir / 不用 cp / 不必先跑 `init`**：缺 `config.json` 时
+  `list` / `plan` / `run` 会自动从 sample 生成一份，Agent 只需改 3 处。逐字段说明见
+  [`references/config-reference.md`](references/config-reference.md)。
 
 ---
 
@@ -63,21 +65,19 @@ python3 scripts/sync.py --profile default status     # 事后复查目标目录�
 
 | 步 | 做什么 | 命令 / 动作 | 完成判据（看到什么才算过） |
 |---|---|---|---|
-| ① | 生成配置 | `python3 scripts/sync.py --profile <名字> init` | 输出「已生成：…/config.json」；文件存在。**模板自动来自 `config.example.json`** |
+| ① | 生成配置（**自动，无需命令**） | 首次跑 `list` / `plan` / `run` 时，缺 `config.json` 会自动从 `profiles/default/config.sample.json` 复制一份；也可显式跑 `init` | 出现 `[init] 已从 config.sample.json 生成 …`，或 `config.json` 已存在 |
 | ② | 写目标目录两个 id | `init --target <乐享目录链接>`，或 `resolve <乐享目录链接>` 后手抄 | `plan` 第一行打印的两个 id 都是 **32 位十六进制**；`list` 不再显示「未就绪」 |
 | ③ | 装链接并按源分组 | `init --from <清单页>` / `collect <清单页>`，或手工往 `tasks[].files` 贴链接 | `collect` 输出「抽到 N 条链接，分成 M 组」；条数与清单对得上；`plan` 里没有 ⚠️ |
 | ④ | 确认凭证与策略 | `token` 留空即可（用宿主连接器）；定时任务才填个人 Token。`conflict_strategy` 保持 `skip` | `list` 显示「凭证 宿主连接器」或打码的 token |
 | ⑤ | 验收 → 执行 | `plan` → `run` → 有疑问 `status` | `plan` 输出「合计 N 个任务 / M 条」且无 ⚠️；`run` 给出四档计数 |
 
-**最快路径**：A 类素材用一条命令同时完成 ①②③：
+**最快路径**：A 类素材用一条命令同时完成 ①②③（`--profile` 默认即 `default`，可省略）：
 
 ```bash
 cd <skill 目录>
-python3 scripts/sync.py --profile <名字> init \
-    --target <乐享目录链接> \
-    --from <放着链接清单的乐享文档链接>
-python3 scripts/sync.py --profile <名字> plan
-python3 scripts/sync.py --profile <名字> run
+python3 scripts/sync.py init --target <乐享目录链接> --from <放着链接清单的乐享文档链接>
+python3 scripts/sync.py plan
+python3 scripts/sync.py run
 ```
 
 **手工填链接时**（B 类）：同一源的全部链接收进**同一个 task 的 `files` 数组**，
@@ -120,7 +120,8 @@ python3 scripts/sync.py --profile <名字> run
 
 ## config.json：结构示意与字段
 
-> 完整可复制模板 = [`config.example.json`](config.example.json)；
+> 完整可复制模板 = [`profiles/default/config.sample.json`](profiles/default/config.sample.json)
+> （根目录 `config.example.json` 是软链接）；
 > 逐字段取值、来源、校验规则与多源片段 = [`references/config-reference.md`](references/config-reference.md)。
 
 ```json
@@ -175,7 +176,7 @@ python3 scripts/sync.py --profile <名字> run
 | 命令 | 用途 |
 |---|---|
 | `list` | 列 profile 和就绪状态（**永远先跑这个**） |
-| `init --profile N` | 从 `config.example.json` 生成 `profiles/N/config.json`（已存在不覆盖）。`--from <乐享文档链接>` 顺带抽链接分组；`--target <乐享目录链接>` 顺带解析目标 id |
+| `init --profile N` | 从 `profiles/default/config.sample.json` 生成 `profiles/N/config.json`（已存在不覆盖；缺配置时 `list`/`plan`/`run` 也会自动生成）。`--from <乐享文档链接>` 顺带抽链接分组；`--target <乐享目录链接>` 顺带解析目标 id |
 | `collect <乐享文档链接>` | 读文档 → 抽「正文里所有 http(s) 链接」→ 按域名归源 → 重写 `tasks`（同源一个 task）。原 config 备份为 `config.json.bak`；`--target` 同时刷新两个 id |
 | `resolve <乐享链接>` | 乐享目录 / 知识库链接 → `space_id` + `parent_entry_id`。一次性转换，不进 run 主路径 |
 | `plan --profile N` | 本地核对 tasks 怎么分组、链接长什么样。**不联网、不提交** |
@@ -218,7 +219,7 @@ python3 scripts/sync.py --profile <名字> run
 1. **候选不改写**：不剥 `?scode=`、不做 URL ↔ ID 互转。改了就是另一个身份，会在目标端造出重复条目。
 2. **`conflict_strategy` 不能省**：接口层不传的语义未实测、保守按 `replace` 看待（可能删掉目标目录里既有条目）；脚本虽会补 `skip`，但仍要显式写死。
 3. **多任务 + `replace` 会被拒绝**（退出码 2）：replace 语义是「以本次提交为准」，多任务有互相覆盖的风险（2026-10-22 微盘场景实测未见删异源条目，但不同源行为待复核，保守处理）。要覆盖语义就拆成多个 profile。
-4. **token 只写进 `config.json`**：不进任何输出、不进日志。`profiles/` 已在 `.gitignore` 里；`config.example.json` 永远保持无真实凭证 / 无真实 id。
+4. **token 只写进 `config.json`**：不进任何输出、不进日志。`profiles/` 下只有 `default/config.sample.json` 与 `.gitignore` 入库，其余运行配置全被忽略；`config.sample.json` 永远保持无真实凭证 / 无真实 id，别往里填 token 再提交。
 5. **凭证缺失直接报错退出**，不降级、不 mock。
 
 ---
@@ -228,6 +229,7 @@ python3 scripts/sync.py --profile <名字> run
 | 现象 | 处理 |
 |---|---|
 | 配置字段 / 取值 / 分组不知道怎么填 | 查 [`references/config-reference.md`](references/config-reference.md) |
+| clone 后 `profiles/default/config.json` 不存在 | 正常：首次跑 `list` / `plan` / `run` 会自动从同目录 `config.sample.json` 生成，不用 mkdir / cp / init |
 | `缺少乐享 MCP 凭证` | 填 `token`，或在 WorkBuddy 里连上「乐享知识库」连接器 |
 | `space_id / parent_entry_id 必须是 32 位 id` | 跑 `resolve <乐享目录链接>` 拿 id，别把链接粘进去 |
 | 整组 `failed` | 提交阶段就失败（没拿到 `task_id`）。脚本**已自动拆单重试过一轮**（结果里 `split: true`）：拆完还整条失败，就是这条文档自己的问题（授权没配 / 混了异源链接 `SelectionNotImportable` / 文档打不开）。看逐条 ✅❌ 的 `error` 原文 |

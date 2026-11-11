@@ -34,7 +34,7 @@
 
 ```mermaid
 flowchart TB
-  A["① 配置<br/>config.example.json → profiles/N/config.json<br/>init / collect 自动填目录 id、按源分组链接"] --> B["② plan<br/>纯本地核对，不联网、不写库"]
+  A["① 配置<br/>profiles/default/config.sample.json → profiles/N/config.json<br/>缺配置时自动生成；init / collect 填目录 id 与分组链接"] --> B["② plan<br/>纯本地核对，不联网、不写库"]
   B --> C["③ run 提交前<br/>entry_list_children 拍一张目标目录快照"]
   C --> D["④ run 提交<br/>entry_import_connector：一个 task = 一次调用<br/>只传链接，正文/图片/附件由乐享服务端抓取并建条目"]
   D --> E["⑤ run 核对<br/>轮询同一目录，与快照 diff 出新增条目<br/>连续 8 秒无新增即收尾"]
@@ -80,27 +80,28 @@ flowchart TB
 
 ## 快速开始
 
-默认配置模板是 [`config.example.json`](config.example.json)，逐字段说明见 [`references/config-reference.md`](references/config-reference.md)。**只改 3 处就能跑**：两个目录 id、链接原文、token（可留空）。
+仓库已自带 `profiles/default/` 和 [`config.sample.json`](profiles/default/config.sample.json)（纯占位、无凭证），
+根目录 `config.example.json` 只是它的软链接。**不用 mkdir、不用 cp、也不必先跑 `init`**：首次跑 `list` / `plan` / `run`
+时脚本发现缺 `config.json`，会自动用 sample 生成一份，随后只需改 3 处（两个目录 id、链接原文、token 可留空）。
+逐字段说明见 [`references/config-reference.md`](references/config-reference.md)。
 
 ```bash
 cd <skill 目录>
 
-# 路径 A（推荐）：链接清单已经放在一篇乐享文档里 —— 一条命令同时填目录 + 抽链接分组
-python3 scripts/sync.py --profile default init \
-    --target <乐享目录链接> \
-    --from <放着链接清单的乐享文档链接>
+# 路径 A（最少步骤）：链接清单已放在乐享文档里 —— 一条命令装好目录 id 和分组链接
+python3 scripts/sync.py init --target <乐享目录链接> --from <放着链接清单的乐享文档链接>
+python3 scripts/sync.py run                    # 提交 + 核对目录新增
 
-# 路径 B：手头就有链接 —— 先生成配置，再手工往 tasks[].files 贴链接原文
-python3 scripts/sync.py --profile default init --target <乐享目录链接>
-# 等价于：mkdir -p profiles/default && cp config.example.json profiles/default/config.json
-
-python3 scripts/sync.py --profile default plan     # 本地核对，不联网不提交
-python3 scripts/sync.py --profile default run      # 提交 + 核对目录新增
-python3 scripts/sync.py --profile default status   # 事后复查目录多了什么
-python3 scripts/sync.py list                      # 看有哪些 profile、是否就绪
+# 路径 B：手头就有链接 —— list 自动生成配置，编辑 3 处，再核对 / 提交
+python3 scripts/sync.py list                  # 首次会打印 [init] 已从 config.sample.json 生成…
+# 编辑 profiles/default/config.json：两个 32 位 id、源端链接原文、token（可留空）
+python3 scripts/sync.py plan                  # 本地核对，不联网不提交
+python3 scripts/sync.py run
+python3 scripts/sync.py status                # 事后复查目录多了什么
 ```
 
-`init` 只在配置不存在时生成、绝不覆盖；`collect` 会重写 `tasks` 并自动留一份 `config.json.bak`。
+`--profile` 默认就是 `default`，可省略。`init` 只在 `config.json` 不存在时生成、绝不覆盖
+（但 `--target` / `--from` 仍会照常写入）；`collect` 会重写 `tasks` 并自动留一份 `config.json.bak`。
 两个目录 id 也可以单独查：`resolve <乐享目录链接>`。
 
 ⚠️ **没有预演**：`run --dry-run` 会被拒绝（退出码 2）。要看「会提交什么」用 `plan`。
@@ -128,7 +129,7 @@ python3 scripts/sync.py list                      # 看有哪些 profile、是�
 ## 目录结构
 
 ```
-config.example.json          默认配置模板（不含任何真实 id / token，init 读的就是它）
+config.example.json          → profiles/default/config.sample.json 的软链接（兼容旧引用）
 SKILL.md                     Agent 执行说明：初始化决策树、命令、红线、排错、测试清单
 README.md                    本文件
 CHANGELOG.md                 变更记录
@@ -138,7 +139,9 @@ references/test-links.md     实测链接清单与判读标准
 scripts/sync.py              主流程：校验 → 提交 → 核对目录 → 汇总
 scripts/api.py               MCP 传输层（凭证 / JSON-RPC / SSE / preset 兜底 / 目标解析）
 scripts/selftest.py          离线自检（31 例）+ 只读联网用例
-profiles/N/config.json       运行配置（含 token，整个目录已在 .gitignore 里排除）
+profiles/default/config.sample.json  唯一权威默认模板（随仓库入库，纯占位无凭证）
+profiles/.gitignore          精确放行 sample，其余运行配置一律排除
+profiles/N/config.json       运行配置（含 token，被忽略；缺失时自动从 sample 生成）
 ```
 
 ## 自检

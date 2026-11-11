@@ -1,0 +1,8 @@
+# 本目录含密钥(config.json 的 token)与日志(sync.log 可能含请求细节)。
+# 严禁提交到 GitHub / ClawHub 等任何代码或 skill 托管平台。
+# 唯一例外：default/config.sample.json —— 纯占位、不含任何真实凭证，供新用户复制上手。
+*
+!.gitignore
+!default/
+default/*
+!default/config.sample.json

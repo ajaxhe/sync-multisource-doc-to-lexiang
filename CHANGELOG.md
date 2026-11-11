@@ -98,6 +98,25 @@
   仍要求显式写死。
 - 自检：`scripts/selftest.py` 31 例全绿（E1 已覆盖「新模板占位符能被 load_config 认出」）。
 
+### 默认 profile 与 sample 配置入库（2026-11-11，同版本）
+
+原则：**保证安全的前提下，让用户 / Agent 的操作步骤最少**。
+
+- 示例模板的唯一真实文件移到 `profiles/default/config.sample.json`（随仓库入库、纯占位）；
+  根目录 `config.example.json` 改为指向它的软链接以兼容已有引用。脚本只读真实文件，
+  不依赖软链接是否被分发工具保留。
+- `.gitignore` 精细放行：`profiles/.gitignore` 只放行 `default/config.sample.json` 一个文件，
+  `config.json` / `state.json` / `sync.log` / 其它 profile 仍一律排除；根 `.gitignore` 去掉
+  `profiles/` 整目录规则（否则 git 不进入该目录，放行规则失效）。`profiles/.gitignore` 本身一并入库，
+  保证新 clone 也有同样的保护；`sync.py` 的 `GITIGNORE` 常量同步。
+- **零命令上手**：`_load_raw()` 在 `config.json` 不存在、同目录有 `config.sample.json` 时自动复制
+  生成一份占位配置（只写本地文件，不联网、不写库、不覆盖已有配置，并打印一行提示）。
+  没有 sample 的 profile 仍按原方式报「不存在」。于是 clone 后不用 mkdir / cp / init，
+  直接 `list` → 改 3 处 → `plan` → `run`。
+- 文档同步：README / SKILL / config-reference 全部指向 `profiles/default/config.sample.json`，
+  命令省略可省的 `--profile default`。
+- 验证：`selftest.py` 31 例全绿；实测自动初始化、软链接读取、忽略规则（真实 `config.json` 仍被忽略）。
+
 ## 0.x — 2026-10（内部迭代，未公开发布）
 
 - 支持企业微信 / 飞书 / 钉钉 / 腾讯文档个人版四源导入，一个源一个 task。

@@ -47,10 +47,12 @@ import api      # noqa: E402
 ROOT = os.path.dirname(HERE)
 PROFILES = os.path.join(ROOT, "profiles")
 
-# 默认配置模板只有一份：skill 根目录的 config.example.json（随 skill 入库、不含真实凭证）。
+# 默认配置模板只有一份：profiles/default/config.sample.json（随仓库入库、不含真实凭证）。
+# 根目录的 config.example.json 是它的软链接，方便人看 / 兼容旧引用；脚本只读真实文件，
+# 不依赖软链接是否被分发工具保留。
 # init 直接复制它，避免「脚本内嵌一份模板 + 文档里再贴一份示例」越改越不一致。
 # 分组规则（一个源一个 task、同源链接收进同一个 files）由示例本身与 config-reference.md 说明。
-EXAMPLE_CONFIG = os.path.join(ROOT, "config.example.json")
+EXAMPLE_CONFIG = os.path.join(PROFILES, "default", "config.sample.json")
 
 
 def default_config_text():
@@ -61,8 +63,10 @@ def default_config_text():
     except OSError as e:
         raise ConfigError("找不到默认配置模板 %s：%s" % (EXAMPLE_CONFIG, e))
 
-GITIGNORE = ("# 本目录含密钥（config.json 的 token）与日志，严禁提交到任何代码/skill 托管平台。\n"
-             "*\n!.gitignore\n")
+GITIGNORE = ("# 本目录含密钥(config.json 的 token)与日志(sync.log 可能含请求细节)。\n"
+             "# 严禁提交到 GitHub / ClawHub 等任何代码或 skill 托管平台。\n"
+             "# 唯一例外：default/config.sample.json —— 纯占位、不含任何真实凭证，供新用户复制上手。\n"
+             "*\n!.gitignore\n!default/\ndefault/*\n!default/config.sample.json\n")
 
 # 导入工具名。2026-11-11 起建任务与查状态合并成这一个，旧的 import_create_task /
 # import_describe_task 已下线（直呼回 `tool not found or not allowed`）。
@@ -259,8 +263,22 @@ def build_tasks(links):
 def _load_raw(profile):
     cfg_path = os.path.join(PROFILES, profile, "config.json")
     if not os.path.exists(cfg_path):
-        raise ConfigError("profile「%s」不存在：%s\n先跑 `sync.py --profile %s init`。"
-                          % (profile, cfg_path, profile))
+        # 零命令上手：仓库自带 profiles/default/config.sample.json，缺 config.json 时直接
+        # 用同目录的示例生成一份占位配置。只写本地文件，不联网、不写库、不覆盖已有配置；
+        # 没有 sample 的 profile 仍按原来的方式报「不存在」，不凭空造配置。
+        sample = os.path.join(PROFILES, profile, "config.sample.json")
+        if not os.path.exists(sample):
+            raise ConfigError("profile「%s」不存在：%s\n先跑 `sync.py --profile %s init`。"
+                              % (profile, cfg_path, profile))
+        try:
+            with open(sample, encoding="utf-8") as f:
+                text = f.read()
+            with open(cfg_path, "w", encoding="utf-8") as f:
+                f.write(text)
+        except OSError as e:
+            raise ConfigError("从 config.sample.json 生成配置失败：%s" % e)
+        sys.stderr.write("[init] 已从 config.sample.json 生成 %s（占位，请填 3 处：两个 id / 链接 / token）。\n"
+                         % cfg_path)
     try:
         with open(cfg_path, encoding="utf-8") as f:
             raw = json.load(f)
@@ -677,7 +695,7 @@ def cmd_init(profile, from_url=None, target_url=None):
     else:
         with open(path, "w", encoding="utf-8") as f:
             f.write(default_config_text())
-        print("已生成：%s（模板来自 config.example.json）" % path)
+        print("已生成：%s（模板来自 profiles/default/config.sample.json）" % path)
         print("只改 3 处：① 两个 32 位 id（`--target <乐享目录链接>` 或 `resolve` 查）；"
               "② tasks 里同源链接收进同一个 files（`--from <乐享清单页>` 可自动抽）；"
               "③ token 可留空（用宿主连接器）。字段说明见 references/config-reference.md。")

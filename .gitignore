@@ -1,5 +1,6 @@
-# 运行配置：含 32 位 space / entry id 与个人 token，绝不提交
-profiles/
+# 运行配置：含 32 位 space / entry id 与个人 token，绝不提交。
+# 例外：profiles/default/config.sample.json 是无凭证的示例模板，由 profiles/.gitignore 精确放行。
+# 不要在这里写 `profiles/` —— 那会让 git 连 profiles/.gitignore 和示例模板一起跳过。
 
 # Agent 本地记忆（不属于 skill 源码）
 .workbuddy/

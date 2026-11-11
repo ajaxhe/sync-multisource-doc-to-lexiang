@@ -1,6 +1,7 @@
 # config.json 参数说明
 
-> 配套模板：[`config.example.json`](../config.example.json)（skill 根目录，**唯一权威默认模板**）。
+> 配套模板：[`profiles/default/config.sample.json`](../profiles/default/config.sample.json)（**唯一权威默认模板**，
+> 随仓库入库、纯占位无凭证）；根目录 `config.example.json` 是它的软链接。
 > 本文只讲「配置怎么填」。接口事实见 [import-api.md](import-api.md)，执行流程、结果口径与排错见 [SKILL.md](../SKILL.md)。
 
 ## 一、30 秒上手：只改 3 处
@@ -21,21 +22,30 @@
 
 | 路径 | 说明 |
 |---|---|
-| `config.example.json` | 默认模板（随 skill 入库，不含任何真实凭证 / id）。`init` 生成配置时读的就是它 |
+| `profiles/default/config.sample.json` | **唯一权威默认模板**（随仓库入库，纯占位、无凭证）。`init` 读的就是它；缺 `config.json` 时也会自动复制它 |
+| `config.example.json` | 根目录软链接 → 上面的 sample，仅为兼容旧引用，不是第二份模板 |
+| `profiles/.gitignore` | 精确放行 sample，把 `config.json` / `state.json` / `sync.log` 一律排除（随仓库入库，新 clone 也有保护） |
 | `profiles/<名字>/config.json` | 真正被读取的运行配置。**一个 profile = 一个独立导入任务**，名字自己取（默认 `default`） |
 | `profiles/<名字>/config.json.bak` | `collect` 覆盖 `tasks` 前的自动备份 |
 | `profiles/<名字>/state.json` | `run` 写下的提交前目录快照，供 `status` 复查；不要手改 |
 | `profiles/<名字>/sync.log` | 仅 `--debug` 时生成，含原始请求 / 回包 |
 
-```bash
-# 方式 A（推荐）：脚本生成，模板来自 config.example.json
-python3 scripts/sync.py --profile default init
+**最少步骤**：clone 后 `profiles/default/` 和 sample 已经在，**不用 mkdir、不用 cp、也不必先跑 `init`** ——
+首次跑 `list` / `plan` / `run`，脚本发现缺 `config.json` 会自动从 `config.sample.json` 复制一份并打印提示：
 
-# 方式 B：直接复制，效果相同
-mkdir -p profiles/default && cp config.example.json profiles/default/config.json
+```bash
+python3 scripts/sync.py list     # 看到 [init] 已从 config.sample.json 生成 … 即配置就位
+# 然后直接编辑 profiles/default/config.json 的 3 处
 ```
 
-`profiles/` 整个目录已在 `.gitignore` 里 —— **config.json 会含 token，绝不提交到任何仓库**。
+想显式生成也可以（已存在则不覆盖）：
+
+```bash
+python3 scripts/sync.py --profile default init
+# 或 cp profiles/default/config.sample.json profiles/<名字>/config.json
+```
+
+`profiles/` 下除 `default/config.sample.json` 与 `.gitignore` 外全被排除 —— **config.json 会含 token，绝不提交到任何仓库**。
 
 ## 三、顶层字段
 
@@ -131,6 +141,7 @@ mkdir -p profiles/default && cp config.example.json profiles/default/config.json
 
 | 命令 | 对 config.json 的影响 |
 |---|---|
+| 首次 `list` / `plan` / `run` | `config.json` 缺失且同目录有 `config.sample.json` 时自动复制生成一份（打印 `[init] …`）；不覆盖已有配置 |
 | `init` | **仅当不存在时**生成，已存在一律不覆盖 |
 | `init --target` / `collect --target` | 只写 `space_id` + `parent_entry_id`，不动 `tasks` |
 | `init --from` / `collect` | **整体重写 `tasks`**（读乐享文档 → 抽所有 http(s) 链接 → 按域名归源 → 同源一个 task）；覆盖前自动留 `config.json.bak`。手填的 `name` / `include_subpages` 会丢，需要事后补 |
@@ -147,5 +158,5 @@ mkdir -p profiles/default && cp config.example.json profiles/default/config.json
 ## 八、安全红线
 
 1. `token` 只写进 `profiles/<名字>/config.json`，不进任何输出、不进日志；`list` 会打码显示。
-2. `config.example.json` 是模板，**永远保持无真实凭证、无真实 id**。
+2. `profiles/default/config.sample.json` 是唯一入库的模板，**永远保持无真实凭证、无真实 id** —— 别把填好 token 的 `config.json` 改名成它再提交。
 3. `--debug` 生成的 `sync.log` 可能含请求细节与链接，别随意外传。
