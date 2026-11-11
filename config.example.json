@@ -1,0 +1,23 @@
+{
+  "token": "",
+  "space_id": "<用 resolve 查出的 32 位知识库 id>",
+  "parent_entry_id": "<用 resolve 查出的 32 位目录 id>",
+  "conflict_strategy": "skip",
+  "tasks": [
+    {
+      "type": "wecombot",
+      "files": [
+        { "id": "https://doc.weixin.qq.com/doc/w3_xxx?scode=xxx" },
+        { "id": "https://doc.weixin.qq.com/doc/w3_yyy?scode=yyy", "name": "可选：指定导入后的标题" }
+      ]
+    },
+    {
+      "type": "txdoc",
+      "files": [
+        { "id": "https://docs.qq.com/doc/REPLACE_WITH_REAL_DOC_ID" }
+      ]
+    }
+  ],
+  "endpoint": "https://mcp.lexiang-app.com/mcp?preset=all",
+  "timeout": 30
+}

@@ -47,45 +47,19 @@ import api      # noqa: E402
 ROOT = os.path.dirname(HERE)
 PROFILES = os.path.join(ROOT, "profiles")
 
-# 一个源一个 task：同一个 type 的链接全部收进该 task 的 files 数组。
-# 组内某条坏链接会在运行时触发「自动拆单」兜底，不会连坐同组的其他文档。
-CONFIG_TEMPLATE = """{
-  "token": "",
-  "space_id": "<32位目标知识库 id，用 resolve 命令查>",
-  "parent_entry_id": "<32位目标目录 id，用 resolve 命令查>",
-  "conflict_strategy": "skip",
-  "tasks": [
-    {
-      "type": "wecombot",
-      "files": [
-        { "id": "https://doc.weixin.qq.com/doc/w3_xxx?scode=xxx" },
-        { "id": "https://doc.weixin.qq.com/sheet/e3_xxx?scode=xxx" }
-      ]
-    },
-    {
-      "type": "feishu",
-      "files": [
-        { "id": "https://xxx.feishu.cn/docx/xxx" }
-      ]
-    },
-    {
-      "type": "dingtalk",
-      "files": [
-        { "id": "https://alidocs.dingtalk.com/i/nodes/xxx" }
-      ]
-    },
-    {
-      "type": "txdoc",
-      "files": [
-        { "id": "https://docs.qq.com/doc/xxxx" },
-        { "id": "https://docs.qq.com/sheet/xxxx" }
-      ]
-    }
-  ],
-  "endpoint": "https://mcp.lexiang-app.com/mcp?preset=all",
-  "timeout": 30
-}
-"""
+# 默认配置模板只有一份：skill 根目录的 config.example.json（随 skill 入库、不含真实凭证）。
+# init 直接复制它，避免「脚本内嵌一份模板 + 文档里再贴一份示例」越改越不一致。
+# 分组规则（一个源一个 task、同源链接收进同一个 files）由示例本身与 config-reference.md 说明。
+EXAMPLE_CONFIG = os.path.join(ROOT, "config.example.json")
+
+
+def default_config_text():
+    """读取默认配置模板；文件丢了就明确报错，绝不静默生成一份不一样的。"""
+    try:
+        with open(EXAMPLE_CONFIG, encoding="utf-8") as f:
+            return f.read()
+    except OSError as e:
+        raise ConfigError("找不到默认配置模板 %s：%s" % (EXAMPLE_CONFIG, e))
 
 GITIGNORE = ("# 本目录含密钥（config.json 的 token）与日志，严禁提交到任何代码/skill 托管平台。\n"
              "*\n!.gitignore\n")
@@ -702,16 +676,16 @@ def cmd_init(profile, from_url=None, target_url=None):
         print("已存在，未覆盖：%s" % path)
     else:
         with open(path, "w", encoding="utf-8") as f:
-            f.write(CONFIG_TEMPLATE)
-        print("已生成：%s" % path)
-        print("三步：① `resolve <乐享目录链接>` 查 space_id / parent_entry_id 并填入；"
-              "② tasks 里填 type + 源端链接（同 type 收进同一个 task 的 files）；"
-              "③ token（留空则用宿主连接器）。")
+            f.write(default_config_text())
+        print("已生成：%s（模板来自 config.example.json）" % path)
+        print("只改 3 处：① 两个 32 位 id（`--target <乐享目录链接>` 或 `resolve` 查）；"
+              "② tasks 里同源链接收进同一个 files（`--from <乐享清单页>` 可自动抽）；"
+              "③ token 可留空（用宿主连接器）。字段说明见 references/config-reference.md。")
     if from_url:
         print("")
         collect_links(profile, from_url, target_url, log=print)
         print("")
-        print("下一步：`plan` 核对 → `run --dry-run` 预演 → `run` 真跑。")
+        print("下一步：`plan` 核对（不联网）→ `run` 提交 → 有疑问 `status` 复查。")
     elif target_url:
         # 只解析目标，不动 tasks —— 链接由人来贴/由 collect 抽
         creds = load_creds(profile)
@@ -721,14 +695,14 @@ def cmd_init(profile, from_url=None, target_url=None):
         _apply_target(raw, client, target_url, log=print)
         _save_config(path, raw)
         print("")
-        print("目标已写入 %s。下一步：往 tasks[].files 填源端链接 → `plan` → `run --dry-run`。" % path)
+        print("目标已写入 %s。下一步：往 tasks[].files 填源端链接（或 collect 抽）→ `plan` → `run`。" % path)
     return 0
 
 
 def cmd_collect(profile, url, target_url=None):
     collect_links(profile, url, target_url, log=print)
     print("")
-    print("下一步：`plan` 核对（不联网）→ `run --dry-run` 预演。")
+    print("下一步：`plan` 核对（不联网）→ `run` 提交 → 有疑问 `status` 复查。")
     return 0
 
 
