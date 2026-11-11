@@ -1,0 +1,19 @@
+# 运行配置：含 32 位 space / entry id 与个人 token，绝不提交
+profiles/
+
+# Agent 本地记忆（不属于 skill 源码）
+.workbuddy/
+
+# 调试日志（--debug 时才生成）
+**/sync.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS / 编辑器
+.DS_Store
+.idea/
+.vscode/
